@@ -68,18 +68,27 @@ fn main() {
         let content_type = media.content_type();
 
 
-        let file_result = fs::read_to_string(format!("{BASE_PATH}{file_path}"));
+        let file_result = fs::File::open(format!("{BASE_PATH}{file_path}"));
         let response;
+        let mut response_bytes;
         match file_result {
             Ok(file) => {
-                let len = file.len();
-                response = format!("{HTTP_VER} 200 OK\r\nContent-Type: {content_type}\r\nContent-Length: {len}\r\n\r\n{file}");
+                let mut reader = BufReader::new(file);
+                let mut buffer = Vec::new();
+
+                reader.read_to_end(&mut buffer).expect("Error when reading file!");
+
+                let len = buffer.len();
+                response = format!("{HTTP_VER} 200 OK\r\nContent-Type: {content_type}\r\nContent-Length: {len}\r\n\r\n");
+                response_bytes = response.into_bytes();
+                response_bytes.append(&mut buffer);
+
+                stream.write_all(&response_bytes).unwrap();
             },
             Err(_error) => {
                 response = format!("{HTTP_VER} 404 Not Found\r\n");
+                stream.write_all(response.as_bytes()).unwrap();
             }
         }
-        println!("{}", response);
-        stream.write_all(response.as_bytes()).unwrap();
     }
 }
