@@ -1,4 +1,5 @@
 use std::{
+    fs,
     io::{prelude::*, BufReader},
     net::{TcpListener, TcpStream},
 };
@@ -58,9 +59,27 @@ fn main() {
     
         println!("Request: {:#?}", http_request);
 
-        let first_line: Vec<&str> = http_request[0].split(' ').collect();
-        let extension = first_line[1].split('.').last().unwrap();
+        const HTTP_VER: &str = "HTTP/1.1";
+        const BASE_PATH: &str = "./static";
+
+        let file_path = http_request[0].split(' ').nth(1).unwrap(); //Only works for correct requests
+        let extension = file_path.split('.').last().unwrap();
         let media: MediaType = MediaType::parse(&extension);
-        println!("MIME: {}", media.content_type());
+        let content_type = media.content_type();
+
+
+        let file_result = fs::read_to_string(format!("{BASE_PATH}{file_path}"));
+        let response;
+        match file_result {
+            Ok(file) => {
+                let len = file.len();
+                response = format!("{HTTP_VER} 200 OK\r\nContent-Type: {content_type}\r\nContent-Length: {len}\r\n\r\n{file}");
+            },
+            Err(_error) => {
+                response = format!("{HTTP_VER} 404 Not Found\r\n");
+            }
+        }
+        println!("{}", response);
+        stream.write_all(response.as_bytes()).unwrap();
     }
 }
